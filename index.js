@@ -48,28 +48,43 @@ async function run() {
     await client.connect();
     // verifyAdmin
     const verifyAdmin = async (req, res, next) => {
-        const email = req.decoded.email;
-        const query = { email: email };
-        const user = await usersCollection.findOne(query);
-        if (user?.role !== "admin") {
-          return res
-            .status(403)
-            .send({ error: true, message: "forbidden message" });
-        }
-        next();
-      };
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== "admin") {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden message" });
+      }
+      next();
+    };
     //   student verify
     const studentVerify = async (req, res, next) => {
-        const email = req.decoded.email;
-        const query = { email: email };
-        const user = await usersCollection.findOne(query);
-        if (user?.role !== "student") {
-          return res
-            .status(403)
-            .send({ error: true, message: "forbidden message" });
-        }
-        next();
-      };
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== "student") {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden message" });
+      }
+      next();
+    };
+
+    // Instructor Verify
+    const instructorVerify = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== "instructor") {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden message" });
+      }
+      next();
+    };
+
+    //   collection
 
     const usersCollection = client.db("sportsDB").collection("users");
 
@@ -80,7 +95,15 @@ async function run() {
       res.send(result);
     });
 
+    //   make jwt token
     
+    app.post("/jwt", (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "1h",
+      });
+      res.send({ token });
+    });
 
     //   user Post
     app.post("/users", async (req, res) => {
@@ -108,40 +131,55 @@ async function run() {
       res.send(result);
     });
     // check admin by email
-    app.get("/users/admin/:email", jwtVerify,verifyAdmin, async (req, res) => {
-        const email = req.params.email;
-  
-        if (req.decoded.email !== email) {
-          res.send({ admin: false });
-        }
-  
-        const query = { email: email };
-        const user = await usersCollection.findOne(query);
-        const result = { admin: user?.role === "admin" };
-        res.send(result);
-      });
+    app.get("/users/admin/:email", jwtVerify, verifyAdmin, async (req, res) => {
+      const email = req.params.email;
+
+      if (req.decoded.email !== email) {
+        res.send({ admin: false });
+      }
+
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      const result = { admin: user?.role === "admin" };
+      res.send(result);
+    });
     //   student role
-    app.get("/users/student/:email",jwtVerify,studentVerify, async (req, res) => {
+    app.get(
+      "/users/student/:email",
+      jwtVerify,
+      studentVerify,
+      async (req, res) => {
         const email = req.params.email;
-  
+
         if (req.decoded.email !== email) {
           res.send({ student: false });
         }
-  
+
         const query = { email: email };
         const user = await usersCollection.findOne(query);
         const result = { student: user?.role === "student" };
         res.send(result);
-      });
+      }
+    );
 
-    //   make jwt token
-    app.post("/jwt", (req, res) => {
-      const user = req.body;
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "1h",
-      });
-      res.send({ token });
-    });
+    //   Instructor role
+    app.get(
+      "/users/instructor/:email",
+      jwtVerify,
+      instructorVerify,
+      async (req, res) => {
+        const email = req.params.email;
+
+        if (req.decoded.email !== email) {
+          res.send({ instructor: false });
+        }
+
+        const query = { email: email };
+        const user = await usersCollection.findOne(query);
+        const result = { instructor: user?.role === "instructor" };
+        res.send(result);
+      }
+    );
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
