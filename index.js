@@ -10,6 +10,25 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 app.use(cors());
 app.use(express.json());
 
+// verifyJwt middleware
+const jwtVerify = (req, res, next) => {
+  const authorization = req.headers.authorization;
+  if (!authorization) {
+    return res.status(401).send({ error: true, message: "unauthorize access" });
+  }
+  //jwt  bearer token
+  const token = authorization.split(" ")[1];
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      return res
+        .status(401)
+        .send({ error: true, message: "unauthorize access" });
+    }
+    req.decoded = decoded;
+    next();
+  });
+};
+
 // mongos
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.bx18cif.mongodb.net/?retryWrites=true&w=majority`;
@@ -27,15 +46,41 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
+    // verifyAdmin
+    const verifyAdmin = async (req, res, next) => {
+        const email = req.decoded.email;
+        const query = { email: email };
+        const user = await usersCollection.findOne(query);
+        if (user?.role !== "admin") {
+          return res
+            .status(403)
+            .send({ error: true, message: "forbidden message" });
+        }
+        next();
+      };
+    //   student verify
+    const studentVerify = async (req, res, next) => {
+        const email = req.decoded.email;
+        const query = { email: email };
+        const user = await usersCollection.findOne(query);
+        if (user?.role !== "student") {
+          return res
+            .status(403)
+            .send({ error: true, message: "forbidden message" });
+        }
+        next();
+      };
 
     const usersCollection = client.db("sportsDB").collection("users");
 
     // user related apis
     // user Get
     app.get("/users", async (req, res) => {
-        const result = await usersCollection.find().toArray();
-        res.send(result);
-      });
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
+
+    
 
     //   user Post
     app.post("/users", async (req, res) => {
@@ -52,25 +97,51 @@ async function run() {
 
     // make user admin
     app.patch("/users/admin/:id", async (req, res) => {
-        const id = req.params.id;
-        const filter = { _id: new ObjectId(id) };
-        const updateDoc = {
-          $set: {
-            role: "admin",
-          },
-        };
-        const result = await usersCollection.updateOne(filter, updateDoc);
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+      const result = await usersCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+    // check admin by email
+    app.get("/users/admin/:email", jwtVerify,verifyAdmin, async (req, res) => {
+        const email = req.params.email;
+  
+        if (req.decoded.email !== email) {
+          res.send({ admin: false });
+        }
+  
+        const query = { email: email };
+        const user = await usersCollection.findOne(query);
+        const result = { admin: user?.role === "admin" };
+        res.send(result);
+      });
+    //   student role
+    app.get("/users/student/:email",jwtVerify,studentVerify, async (req, res) => {
+        const email = req.params.email;
+  
+        if (req.decoded.email !== email) {
+          res.send({ student: false });
+        }
+  
+        const query = { email: email };
+        const user = await usersCollection.findOne(query);
+        const result = { student: user?.role === "student" };
         res.send(result);
       });
 
     //   make jwt token
     app.post("/jwt", (req, res) => {
-        const user = req.body;
-        const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-          expiresIn: "1h",
-        });
-        res.send({ token });
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "1h",
       });
+      res.send({ token });
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
