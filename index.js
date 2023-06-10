@@ -87,6 +87,20 @@ async function run() {
     //   collection
 
     const usersCollection = client.db("sportsDB").collection("users");
+    const userClass = client.db("sportsDB").collection("class");
+
+    // class post
+    app.post("/class", async (req, res) => {
+      const newClass = req.body;
+      const result = await userClass.insertOne(newClass);
+      res.send(result);
+    });
+
+    // class get
+    app.get("/class", async (req, res) => {
+      const result = await userClass.find().toArray();
+      res.send(result);
+    });
 
     // user related apis
     // user Get
@@ -96,11 +110,11 @@ async function run() {
     });
 
     //   make jwt token
-    
+
     app.post("/jwt", (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "1h",
+        expiresIn: "2h",
       });
       res.send({ token });
     });
@@ -131,12 +145,12 @@ async function run() {
       res.send(result);
     });
     // check admin by email
-    app.get("/users/admin/:email", jwtVerify, verifyAdmin, async (req, res) => {
+    app.get("/users/admin/:email", async (req, res) => {
       const email = req.params.email;
 
-      if (req.decoded.email !== email) {
-        res.send({ admin: false });
-      }
+      //   if (req.decoded.email !== email) {
+      //     res.send({ admin: false });
+      //   }
 
       const query = { email: email };
       const user = await usersCollection.findOne(query);
@@ -146,14 +160,13 @@ async function run() {
     //   student role
     app.get(
       "/users/student/:email",
-      jwtVerify,
-      studentVerify,
+
       async (req, res) => {
         const email = req.params.email;
 
-        if (req.decoded.email !== email) {
-          res.send({ student: false });
-        }
+        // if (req.decoded.email !== email) {
+        //   res.send({ student: false });
+        // }
 
         const query = { email: email };
         const user = await usersCollection.findOne(query);
@@ -163,16 +176,28 @@ async function run() {
     );
 
     //   Instructor role
+    app.patch("/users/instructor/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          role: "instructor",
+        },
+      };
+      const result = await usersCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    //   instructor instructor by email
     app.get(
       "/users/instructor/:email",
-      jwtVerify,
-      instructorVerify,
+
       async (req, res) => {
         const email = req.params.email;
 
-        if (req.decoded.email !== email) {
-          res.send({ instructor: false });
-        }
+        // if (req.decoded.email !== email) {
+        //   res.send({ instructor: false });
+        // }
 
         const query = { email: email };
         const user = await usersCollection.findOne(query);
