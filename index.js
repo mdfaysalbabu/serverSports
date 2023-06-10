@@ -102,6 +102,32 @@ async function run() {
       res.send(result);
     });
 
+    // class email find
+    app.get("/class/:email",async(req,res)=>{
+        const email=req.params.email;
+        const query={instructorEmail:email}
+        const result=await userClass.find(query).toArray()
+        res.send(result)
+
+    })
+
+    app.patch('/class/:id',async(req,res)=>{
+        const id=req.params.id;
+        const {i}=req.body;
+        console.log(i);
+        const filter={_id:new ObjectId(id)}
+        console.log(id);
+        const updateDoc={
+            $set: {
+                  status:i===true?'approved':'denied'        
+              },
+        };
+
+        const result=await userClass.updateOne(filter,updateDoc);
+        res.send(result)
+
+    })
+
     // user related apis
     // user Get
     app.get("/users", async (req, res) => {
