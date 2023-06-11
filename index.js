@@ -3,6 +3,7 @@ const app = express();
 const cors = require("cors");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
+const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 const port = process.env.PORT || 4000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
@@ -88,6 +89,8 @@ async function run() {
 
     const usersCollection = client.db("sportsDB").collection("users");
     const userClass = client.db("sportsDB").collection("class");
+    const cartCollection = client.db("sportsDB").collection("carts");
+    const paymentCollection = client.db("sportsDB").collection("payments");
 
     // class post
     app.post("/class", async (req, res) => {
@@ -103,30 +106,28 @@ async function run() {
     });
 
     // class email find
-    app.get("/class/:email",async(req,res)=>{
-        const email=req.params.email;
-        const query={instructorEmail:email}
-        const result=await userClass.find(query).toArray()
-        res.send(result)
+    app.get("/class/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { instructorEmail: email };
+      const result = await userClass.find(query).toArray();
+      res.send(result);
+    });
 
-    })
+    app.patch("/class/:id", async (req, res) => {
+      const id = req.params.id;
+      const { i } = req.body;
+      console.log(i);
+      const filter = { _id: new ObjectId(id) };
+      console.log(id);
+      const updateDoc = {
+        $set: {
+          status: i === true ? "approved" : "denied",
+        },
+      };
 
-    app.patch('/class/:id',async(req,res)=>{
-        const id=req.params.id;
-        const {i}=req.body;
-        console.log(i);
-        const filter={_id:new ObjectId(id)}
-        console.log(id);
-        const updateDoc={
-            $set: {
-                  status:i===true?'approved':'denied'        
-              },
-        };
-
-        const result=await userClass.updateOne(filter,updateDoc);
-        res.send(result)
-
-    })
+      const result = await userClass.updateOne(filter, updateDoc);
+      res.send(result);
+    });
 
     // user related apis
     // user Get
@@ -183,23 +184,6 @@ async function run() {
       const result = { admin: user?.role === "admin" };
       res.send(result);
     });
-    //   student role
-    app.get(
-      "/users/student/:email",
-
-      async (req, res) => {
-        const email = req.params.email;
-
-        // if (req.decoded.email !== email) {
-        //   res.send({ student: false });
-        // }
-
-        const query = { email: email };
-        const user = await usersCollection.findOne(query);
-        const result = { student: user?.role === "student" };
-        res.send(result);
-      }
-    );
 
     //   Instructor role
     app.patch("/users/instructor/:id", async (req, res) => {
@@ -231,6 +215,54 @@ async function run() {
         res.send(result);
       }
     );
+
+    // carts
+    app.post("/carts", async (req, res) => {
+      const data = req.body;
+      const result = await cartCollection.insertOne(data);
+      res.send(result);
+    });
+    app.get("/carts/:id", async (req, res) => {
+        const id = req.params.id;
+  
+        const query = {_id:new ObjectId(id) };
+        const result = await cartCollection.findOne(query);
+        res.send(result);
+      });
+    app.get("/carts", async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const result = await cartCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // payment intent api
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    // payment related api
+    app.post("/payments", async (req, res) => {
+      const payment = req.body;
+      const insertResult = await paymentCollection.insertOne(payment);
+
+      //   const query = {
+      //     _id: { $in: payment.cartItems.map((id) => new ObjectId(id)) },
+      //   };
+      //   const deleteResult = await cartCollection.deleteMany(query);
+
+      res.send({ insertResult });
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
