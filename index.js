@@ -47,43 +47,8 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
-    // verifyAdmin
-    const verifyAdmin = async (req, res, next) => {
-      const email = req.decoded.email;
-      const query = { email: email };
-      const user = await usersCollection.findOne(query);
-      if (user?.role !== "admin") {
-        return res
-          .status(403)
-          .send({ error: true, message: "forbidden message" });
-      }
-      next();
-    };
-    //   student verify
-    const studentVerify = async (req, res, next) => {
-      const email = req.decoded.email;
-      const query = { email: email };
-      const user = await usersCollection.findOne(query);
-      if (user?.role !== "student") {
-        return res
-          .status(403)
-          .send({ error: true, message: "forbidden message" });
-      }
-      next();
-    };
-
-    // Instructor Verify
-    const instructorVerify = async (req, res, next) => {
-      const email = req.decoded.email;
-      const query = { email: email };
-      const user = await usersCollection.findOne(query);
-      if (user?.role !== "instructor") {
-        return res
-          .status(403)
-          .send({ error: true, message: "forbidden message" });
-      }
-      next();
-    };
+   
+    
 
     //   collection
 
@@ -141,7 +106,7 @@ async function run() {
     app.post("/jwt", (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "2h",
+        expiresIn: "6d",
       });
       res.send({ token });
     });
@@ -236,6 +201,12 @@ async function run() {
       res.send(result);
     });
 
+    app.delete('/carts/:id',async(req,res)=>{
+      const id=req.params.id;
+      const query={_id:new ObjectId(id)}
+      const result=awa
+    })
+
     // payment intent api
     app.post("/create-payment-intent", async (req, res) => {
       const { price } = req.body;
@@ -256,13 +227,33 @@ async function run() {
       const payment = req.body;
       const insertResult = await paymentCollection.insertOne(payment);
 
+      const query={_id:new ObjectId(payment.cartId)}
+      const deleteResult=await cartCollection.deleteOne(query);
+       const seat=payment.seats-1;
+       const enrolled=payment.enrolledStudents+1;
+       const filter={_id:new ObjectId(payment.classId)}
+       const updateDoc = {
+        $set: {
+          seats:seat,
+          enrolledStudents:enrolled
+        },
+      };
+      const update=await userClass.updateOne(filter,updateDoc);
+
+    
+    //    const updateResult=awa
       //   const query = {
       //     _id: { $in: payment.cartItems.map((id) => new ObjectId(id)) },
       //   };
       //   const deleteResult = await cartCollection.deleteMany(query);
 
-      res.send({ insertResult });
+      res.send({ insertResult,deleteResult,update });
     });
+
+    app.get('/payments',async(req,res)=>{
+        const result=await paymentCollection.find().toArray();
+        res.send(result);
+    })
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
