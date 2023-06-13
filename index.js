@@ -65,9 +65,22 @@ async function run() {
     });
 
     // class get
-    app.get("/class", async (req, res) => {
-      const result = await userClass.find().toArray();
-      res.send(result);
+    app.get("/class/:filterClass", async (req, res) => {
+        const filterClass=req.params.filterClass;
+      if(filterClass==='true')
+      {
+        const result = await userClass.find().sort({
+            enrolledStudents:-1
+          }).toArray();
+          res.send(result);
+      }
+      else{
+        const query={status:'approved'}
+        const result = await userClass.find(query).sort({
+            enrolledStudents:-1
+          }).toArray();
+          res.send(result);
+      }
     });
 
     // class email find
@@ -194,6 +207,7 @@ async function run() {
         const result = await cartCollection.findOne(query);
         res.send(result);
       });
+
     app.get("/carts", async (req, res) => {
       const email = req.query.email;
       const query = { email: email };
@@ -203,8 +217,10 @@ async function run() {
 
     app.delete('/carts/:id',async(req,res)=>{
       const id=req.params.id;
-      const query={_id:new ObjectId(id)}
-      const result=awa
+      console.log(id);
+      const query={_id: new ObjectId(id)}
+      const result = await cartCollection.deleteOne(query);
+      res.send(result)
     })
 
     // payment intent api
@@ -230,7 +246,7 @@ async function run() {
       const query={_id:new ObjectId(payment.cartId)}
       const deleteResult=await cartCollection.deleteOne(query);
        const seat=payment.seats-1;
-       const enrolled=payment.enrolledStudents+1;
+       const enrolled=parseInt(payment.enrolledStudents)+1;
        const filter={_id:new ObjectId(payment.classId)}
        const updateDoc = {
         $set: {
